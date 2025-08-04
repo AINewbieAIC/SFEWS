@@ -74,6 +74,5 @@ func main() {
 	}
 
 	mqttClient.Subscribe("sensor/rain", 0, messagePubHandler)
-
 	select {}
 }
