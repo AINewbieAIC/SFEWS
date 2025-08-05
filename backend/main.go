@@ -5,17 +5,12 @@ import (
 	"log"
 	"os"
 	"sfews-backend/config"
+	"sfews-backend/databases"
+	"sfews-backend/databases/migrations"
 	"strconv"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
-
-type Hujan struct {
-	Timestamp        int
-	WaterLevel       int
-	RainStatus       bool
-	RainAdcIntensity any
-}
 
 var messagePubHandler mqtt.MessageHandler = func(c mqtt.Client, m mqtt.Message) {
 	fmt.Printf("Received message: %s from topic : %s\n", m.Payload(), m.Topic())
@@ -62,6 +57,19 @@ func main() {
 	// load env
 	if err := config.LoadEnv(); err != nil {
 		log.Fatalf("failed to load env : %v", err)
+	}
+
+	// database
+	err := databases.InitDB()
+	if err != nil {
+		log.Fatalf("failed to init db : %v", err)
+	}
+
+	log.Print("db is connected.")
+
+	err = migrations.Migrations()
+	if err != nil {
+		log.Fatalf("failed to migrate database : %v", err)
 	}
 
 	mqttClient, err := CreateMQTTClientConnection()
