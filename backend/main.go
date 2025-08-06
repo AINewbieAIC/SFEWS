@@ -6,6 +6,9 @@ import (
 	"sfews-backend/databases"
 	"sfews-backend/databases/migrations"
 	"sfews-backend/mqtt"
+	"sfews-backend/routes"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -27,6 +30,12 @@ func main() {
 		log.Fatalf("failed to migrate database : %v", err)
 	}
 
+	// routes
+
+	r := gin.Default()
+	routes.MapRoutes(r)
+
+	// mqtt
 	mqttClient, err := mqtt.CreateClient()
 	if err != nil {
 		log.Fatalf("failed to create mqtt client : %v", err)
@@ -45,5 +54,7 @@ func main() {
 
 	client.Subscribe("sensor/rain", 0, mqtt.SensorRainHandler)
 
+	//
 	select {}
+
 }
