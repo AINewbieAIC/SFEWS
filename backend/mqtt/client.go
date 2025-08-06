@@ -21,9 +21,9 @@ func CreateClient() (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(MQTT_URL)
 	opts.SetClientID(os.Getenv("MQTT_CLIENT_ID"))
-	opts.SetDefaultPublishHandler(messagePubHandler)
-	opts.OnConnect = connectHandler
-	opts.OnConnectionLost = connectLostHandler
+	// opts.SetDefaultPublishHandler(messagePubHandler)
+	opts.OnConnect = ConnectHandler
+	opts.OnConnectionLost = ConnectLostHandler
 	client := mqtt.NewClient(opts)
 	return client, nil
 }
@@ -47,6 +47,6 @@ func (m *Mqtt) Connect() error {
 	return nil
 }
 
-func (m *Mqtt) Subscribe(topic string) mqtt.Token {
-	return m.Client.Subscribe(topic, 0, messagePubHandler)
+func (m *Mqtt) Subscribe(topic string, qos byte, handler mqtt.MessageHandler) mqtt.Token {
+	return m.Client.Subscribe(topic, qos, handler)
 }
