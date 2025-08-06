@@ -6,8 +6,11 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-var MessagePubHandler mqtt.MessageHandler = func(c mqtt.Client, m mqtt.Message) {
-	fmt.Printf("Received message: %s from topic : %s\n", m.Payload(), m.Topic())
+var SensorRainHandler mqtt.MessageHandler = func(c mqtt.Client, m mqtt.Message) {
+	if m.Topic() != "sensor/rain" {
+		return
+	}
+
 }
 
 var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {

@@ -43,7 +43,7 @@ func main() {
 
 	log.Print("Mqtt is connected")
 
-	client.Subscribe("sensor/rain", 0, mqtt.MessagePubHandler)
+	client.Subscribe("sensor/rain", 0, mqtt.SensorRainHandler)
 
 	select {}
 }
