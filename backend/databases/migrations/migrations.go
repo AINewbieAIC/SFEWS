@@ -1,11 +1,13 @@
 package migrations
 
 import (
-	"sfews-backend/databases"
 	"sfews-backend/models"
+
+	"gorm.io/gorm"
 )
 
-func Migrations() error {
-	err := databases.DB.AutoMigrate(&models.Hujan{})
+func Migrations(db *gorm.DB) error {
+	// err := databases.DB.AutoMigrate(&models.Hujan{})
+	err := db.AutoMigrate(&models.Rain{})
 	return err
 }

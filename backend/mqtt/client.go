@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -24,6 +26,9 @@ func CreateClient() (mqtt.Client, error) {
 	// opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.OnConnect = ConnectHandler
 	opts.OnConnectionLost = ConnectLostHandler
+	opts.AutoReconnect = true
+	opts.SetConnectTimeout(10 * time.Second)
+	opts.SetKeepAlive(60 * time.Second)
 	client := mqtt.NewClient(opts)
 	return client, nil
 }
@@ -47,6 +52,55 @@ func (m *Mqtt) Connect() error {
 	return nil
 }
 
+func (m *Mqtt) Disconnet() {
+	m.Client.Disconnect(250)
+}
+
 func (m *Mqtt) Subscribe(topic string, qos byte, handler mqtt.MessageHandler) mqtt.Token {
 	return m.Client.Subscribe(topic, qos, handler)
+}
+
+func (m *Mqtt) ConnectAndSubscribe() error {
+	err := m.Connect()
+	if err != nil {
+		return err
+	}
+
+	topics := map[string]mqtt.MessageHandler{
+		"sensor/rain": SensorRainHandler,
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(topics))
+	// doneCh := make(chan struct{})
+
+	for topic, handler := range topics {
+		wg.Add(1)
+		go func(tp string, h mqtt.MessageHandler) {
+			defer wg.Done()
+			token := m.Subscribe(topic, 0, h)
+			if token.Wait() && token.Error() != nil {
+				errCh <- token.Error()
+			} else {
+				errCh <- nil
+			}
+		}(topic, handler)
+	}
+
+	// for i := 0; i < len(topics); i++ {
+	// 	if subErr := <-errCh; subErr != nil {
+	// 		return subErr
+	// 	}
+	// }
+
+	wg.Wait()
+	close(errCh)
+
+	for e := range errCh {
+		if e != nil {
+			return e
+		}
+	}
+
+	return nil
 }

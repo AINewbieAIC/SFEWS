@@ -1,8 +1,11 @@
 package routes
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
 
-func MapRoutes(route *gin.Engine) {
+func MapRoutes(db *gorm.DB, route *gin.Engine) {
 	api := route.Group("api")
-	SensorRoutes(api)
+	SensorRoutes(db, api)
 }

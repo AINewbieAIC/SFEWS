@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"os/signal"
 	"sfews-backend/config"
 	"sfews-backend/databases"
 	"sfews-backend/databases/migrations"
@@ -18,22 +20,17 @@ func main() {
 	}
 
 	// database
-	err := databases.InitDB()
+	db, err := databases.InitDB()
 	if err != nil {
 		log.Fatalf("failed to init db : %v", err)
 	}
 
 	log.Print("db is connected.")
 
-	err = migrations.Migrations()
+	err = migrations.Migrations(db)
 	if err != nil {
 		log.Fatalf("failed to migrate database : %v", err)
 	}
-
-	// routes
-
-	r := gin.Default()
-	routes.MapRoutes(r)
 
 	// mqtt
 	mqttClient, err := mqtt.CreateClient()
@@ -45,16 +42,26 @@ func main() {
 		Client: mqttClient,
 	}
 
-	err = client.Connect()
+	err = client.ConnectAndSubscribe()
 	if err != nil {
-		log.Fatalf("failed to connect client mqtt : %v", err)
+		log.Fatalf("failed to connect & subsribe : %v", err)
 	}
 
-	log.Print("Mqtt is connected")
+	// routes
+	r := gin.Default()
+	routes.MapRoutes(db, r)
 
-	client.Subscribe("sensor/rain", 0, mqtt.SensorRainHandler)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
 
-	//
-	select {}
+	<-quit
 
+	client.Disconnet()
+
+	postgresDB, err := db.DB()
+	if err == nil {
+		postgresDB.Close()
+	}
+
+	log.Println("shutting down is ok")
 }

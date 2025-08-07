@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type Hujan struct {
+type Rain struct {
 	ID               uint    `gorm:"primaryKey"`
 	Timestamp        int     `json:"timestamp"`
 	WaterLevel       float64 `json:"water_level"`

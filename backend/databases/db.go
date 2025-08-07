@@ -9,12 +9,10 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
-
-func InitDB() error {
+func InitDB() (*gorm.DB, error) {
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Jakarta",
@@ -27,10 +25,8 @@ func InitDB() error {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	DB = db
-
-	return nil
+	return db, nil
 }

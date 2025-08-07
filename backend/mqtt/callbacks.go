@@ -2,21 +2,19 @@ package mqtt
 
 import (
 	"fmt"
+	"log"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var SensorRainHandler mqtt.MessageHandler = func(c mqtt.Client, m mqtt.Message) {
-	if m.Topic() != "sensor/rain" {
-		return
-	}
-
+	fmt.Println(string(m.Payload()))
 }
 
 var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {
-	fmt.Println("Connected")
+	log.Println("MQTT IS CONNECTED")
 }
 
 var ConnectLostHandler mqtt.ConnectionLostHandler = func(c mqtt.Client, err error) {
-	fmt.Printf("Connect Lost : %v", err)
+	log.Println("MQTT IS DISCONNECT")
 }
