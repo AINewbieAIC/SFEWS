@@ -3,6 +3,7 @@ package mqtt
 import (
 	"fmt"
 	"os"
+	"sfews-backend/services"
 	"strconv"
 	"sync"
 	"time"
@@ -10,8 +11,13 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+type Services struct {
+	Sensor services.SensorService
+}
+
 type Mqtt struct {
-	Client mqtt.Client
+	Client   mqtt.Client
+	Services Services
 }
 
 func CreateClient() (mqtt.Client, error) {
@@ -67,7 +73,7 @@ func (m *Mqtt) ConnectAndSubscribe() error {
 	}
 
 	topics := map[string]mqtt.MessageHandler{
-		"sensor/rain": SensorRainHandler,
+		"sensor/rain": SensorRainHandler(&m.Services.Sensor),
 	}
 
 	var wg sync.WaitGroup
