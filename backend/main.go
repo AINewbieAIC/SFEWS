@@ -56,7 +56,7 @@ func main() {
 
 	<-quit
 
-	client.Disconnet()
+	client.Disconnect()
 
 	postgresDB, err := db.DB()
 	if err == nil {

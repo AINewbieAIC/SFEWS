@@ -58,7 +58,7 @@ func (m *Mqtt) Connect() error {
 	return nil
 }
 
-func (m *Mqtt) Disconnet() {
+func (m *Mqtt) Disconnect() {
 	m.Client.Disconnect(250)
 }
 
@@ -73,7 +73,7 @@ func (m *Mqtt) ConnectAndSubscribe() error {
 	}
 
 	topics := map[string]mqtt.MessageHandler{
-		"sensor/rain": SensorRainHandler(&m.Services.Sensor),
+		"sensor/rain": Rain(&m.Services.Sensor),
 	}
 
 	var wg sync.WaitGroup
