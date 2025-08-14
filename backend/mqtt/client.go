@@ -11,13 +11,9 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-type Services struct {
-	Sensor services.SensorService
-}
-
 type Mqtt struct {
-	Client   mqtt.Client
-	Services Services
+	Client         mqtt.Client
+	SensorServices services.SensorService
 }
 
 func CreateClient() (mqtt.Client, error) {
@@ -73,7 +69,7 @@ func (m *Mqtt) ConnectAndSubscribe() error {
 	}
 
 	topics := map[string]mqtt.MessageHandler{
-		"sensor/rain": Rain(&m.Services.Sensor),
+		"sensor/rain": Rain(&m.SensorServices),
 	}
 
 	var wg sync.WaitGroup

@@ -1,11 +1,17 @@
 package routes
 
 import (
+	"sfews-backend/controllers"
+
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func MapRoutes(db *gorm.DB, route *gin.Engine) {
-	api := route.Group("api")
-	SensorRoutes(db, api)
+type Routes struct {
+	Route            *gin.Engine
+	SensorController controllers.SensorController
+}
+
+func (r *Routes) MapRoutes() {
+	api := r.Route.Group("api")
+	r.SensorRoutes(api)
 }

@@ -5,10 +5,13 @@ import (
 	"os"
 	"os/signal"
 	"sfews-backend/config"
+	"sfews-backend/controllers"
 	"sfews-backend/databases"
 	"sfews-backend/databases/migrations"
 	"sfews-backend/mqtt"
+	"sfews-backend/repositories"
 	"sfews-backend/routes"
+	"sfews-backend/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -38,8 +41,13 @@ func main() {
 		log.Fatalf("failed to create mqtt client : %v", err)
 	}
 
+	sensorRepo := repositories.NewSensorRepo(db)
+	sensorServices := services.NewSensorService(*sensorRepo)
+	sensorControllers := controllers.NewSensorController(*sensorServices)
+
 	client := mqtt.Mqtt{
-		Client: mqttClient,
+		Client:         mqttClient,
+		SensorServices: *sensorServices,
 	}
 
 	err = client.ConnectAndSubscribe()
@@ -49,7 +57,13 @@ func main() {
 
 	// routes
 	r := gin.Default()
-	routes.MapRoutes(db, r)
+
+	route := routes.Routes{
+		Route:            r,
+		SensorController: *sensorControllers,
+	}
+
+	route.MapRoutes()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
