@@ -21,5 +21,7 @@ func Rain(sensor *services.SensorService) mqtt.MessageHandler {
 			log.Printf("error insert data rain : %v", err)
 			return
 		}
+
+		log.Println("Success save new data : " + string(m.Payload()))
 	}
 }
