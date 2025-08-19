@@ -5,7 +5,7 @@ import (
 )
 
 type Rain struct {
-	ID                  uint    `gorm:"primaryKey"`
+	ID                  uint    `gorm:"primaryKey" json:"-"`
 	Timestamp           int     `json:"timestamp"`
 	WaterLevel          float64 `json:"water_level"`
 	RainStatus          int     `json:"rain_status"`

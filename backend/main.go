@@ -65,6 +65,8 @@ func main() {
 
 	route.MapRoutes()
 
+	r.Run(":8080")
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 
