@@ -20,3 +20,12 @@ func (s *SensorService) InsertDataRain(data *models.Rain) error {
 
 	return nil
 }
+
+func (s *SensorService) GetLastRain() (*models.Rain, error) {
+	var rain models.Rain
+	if err := s.Repo.DB.Last(&rain).Error; err != nil {
+		return nil, err
+	}
+
+	return &rain, nil
+}

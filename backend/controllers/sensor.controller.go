@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"net/http"
+	"sfews-backend/helpers"
 	"sfews-backend/services"
 
 	"github.com/gin-gonic/gin"
@@ -15,5 +17,11 @@ func NewSensorController(service services.SensorService) *SensorController {
 }
 
 func (s *SensorController) GetRain(ctx *gin.Context) {
+	rain, err := s.Service.GetLastRain()
+	if err != nil {
+		helpers.ResponseJson(ctx, http.StatusInternalServerError, false, nil, err.Error())
+		return
+	}
 
+	helpers.ResponseJson(ctx, http.StatusOK, true, rain, "Success get rain")
 }
