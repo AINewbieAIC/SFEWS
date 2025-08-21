@@ -12,10 +12,9 @@ type NodeStatus struct {
 	NodeOnline bool `json:"node_status"`
 }
 
-var nodeStatus = false
-
 var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {
 	log.Println("MQTT IS CONNECTED")
+	handlers.NodeStatusOnline = true
 
 	nodeNotif := NodeStatus{
 		NodeOnline: true,
@@ -32,6 +31,8 @@ var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {
 
 var ConnectLostHandler mqtt.ConnectionLostHandler = func(c mqtt.Client, err error) {
 	log.Println("MQTT IS DISCONNECT")
+
+	handlers.NodeStatusOnline = false
 
 	nodeNotif := NodeStatus{
 		NodeOnline: false,
