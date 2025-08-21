@@ -8,6 +8,7 @@ import (
 	"sfews-backend/controllers"
 	"sfews-backend/databases"
 	"sfews-backend/databases/migrations"
+	"sfews-backend/handlers"
 	"sfews-backend/mqtt"
 	"sfews-backend/repositories"
 	"sfews-backend/routes"
@@ -54,6 +55,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect & subsribe : %v", err)
 	}
+
+	// sse
+	handlers.RunBroadcaster()
 
 	// routes
 	r := gin.Default()

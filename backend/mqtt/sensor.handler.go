@@ -3,6 +3,7 @@ package mqtt
 import (
 	"encoding/json"
 	"log"
+	"sfews-backend/handlers"
 	"sfews-backend/models"
 	"sfews-backend/services"
 
@@ -21,6 +22,8 @@ func Rain(sensor *services.SensorService) mqtt.MessageHandler {
 			log.Printf("error insert data rain : %v", err)
 			return
 		}
+
+		handlers.SendBroadcast("notif", rain)
 
 		log.Println("Success save new data : " + string(m.Payload()))
 	}

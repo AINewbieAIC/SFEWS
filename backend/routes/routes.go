@@ -14,4 +14,6 @@ type Routes struct {
 func (r *Routes) MapRoutes() {
 	api := r.Route.Group("api")
 	r.SensorRoutes(api)
+	r.SSERoutes(api)
+	r.Node(api)
 }
