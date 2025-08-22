@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertCard } from '@/components/AlertCard';
 import { NotificationSettings } from '@/components/NotificationSettings';
 
-const alerts = [
+const initialAlerts = [
   {
     id: 1,
     time: '15:30',
@@ -13,7 +13,6 @@ const alerts = [
     message:
       'Ketinggian air mencapai 250 cm dengan hujan deras selama 45 menit. Segera evakuasi!',
     type: 'danger',
-    read: false,
   },
   {
     id: 2,
@@ -22,7 +21,6 @@ const alerts = [
     title: '⚠️ Status Waspada',
     message: 'Water level 180 cm dengan hujan sedang. Harap tetap waspada.',
     type: 'warning',
-    read: false,
   },
   {
     id: 3,
@@ -32,7 +30,6 @@ const alerts = [
     message:
       'Koneksi dengan node sensor terputus. Melakukan reconnect otomatis.',
     type: 'info',
-    read: true,
   },
   {
     id: 4,
@@ -41,7 +38,6 @@ const alerts = [
     title: '✅ Kondisi Normal',
     message: 'Status flood risk kembali ke kondisi Aman. Water level 85 cm.',
     type: 'success',
-    read: true,
   },
 ];
 
@@ -51,7 +47,11 @@ export default function Alerts() {
   const [warningEnabled, setWarningEnabled] = React.useState(true);
   const [dangerEnabled, setDangerEnabled] = React.useState(true);
 
-  const unreadCount = alerts.filter((alert) => !alert.read).length;
+  const [alerts, setAlerts] = React.useState(initialAlerts);
+
+  const handleCloseAlert = (id: any) => {
+    setAlerts((prev) => prev.filter((alert) => alert.id !== id));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -62,9 +62,9 @@ export default function Alerts() {
         <View style={styles.header}>
           <Text style={styles.title}>Alerts & Notifications</Text>
           <View style={styles.badgeContainer}>
-            {unreadCount > 0 && (
+            {alerts.length > 0 && (
               <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{unreadCount} unread</Text>
+                <Text style={styles.unreadText}>{alerts.length} active</Text>
               </View>
             )}
           </View>
@@ -94,7 +94,7 @@ export default function Alerts() {
               title={alert.title}
               message={alert.message}
               type={alert.type}
-              read={alert.read}
+              onClose={() => handleCloseAlert(alert.id)}
             />
           ))}
         </View>
