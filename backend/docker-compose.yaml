@@ -5,8 +5,8 @@ services:
     restart: always
     volumes:
       - ./.env:/app/.env
-    ports:
-      - "80:8080"
+    expose:
+      - "8080:8080"
     depends_on:
       - mysql
     networks:
@@ -21,12 +21,26 @@ services:
       MYSQL_DATABASE: sfews
       MYSQL_USER: sfews
       MYSQL_PASSWORD: sfews
-    ports:
-      - "3306:3306"
+    expose:
+      - "3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - gin_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: sfews-nginx
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    networks:
+      - gin_network
+
 
 networks:
   gin_network:
