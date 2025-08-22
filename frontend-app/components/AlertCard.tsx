@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { X } from 'lucide-react-native'; // atau bisa ganti pakai emoji ❌
 
 interface AlertCardProps {
   time: string;
@@ -7,7 +8,7 @@ interface AlertCardProps {
   title: string;
   message: string;
   type: 'danger' | 'warning' | 'info' | 'success';
-  read: boolean;
+  onClose?: () => void; // props baru untuk handle close
 }
 
 export function AlertCard({
@@ -16,7 +17,7 @@ export function AlertCard({
   title,
   message,
   type,
-  read,
+  onClose,
 }: AlertCardProps) {
   const getTypeColor = (alertType: string) => {
     switch (alertType) {
@@ -36,13 +37,18 @@ export function AlertCard({
   const typeColor = getTypeColor(type);
 
   return (
-    <View style={[styles.container, { opacity: read ? 0.7 : 1 }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.timeContainer}>
           <Text style={styles.time}>{time}</Text>
           <Text style={styles.date}>{date}</Text>
         </View>
-        {!read && <View style={styles.unreadDot} />}
+
+        {onClose && (
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <X size={18} color="#374151" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <Text style={styles.title}>{title}</Text>
@@ -90,11 +96,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#DC2626',
+  closeButton: {
+    padding: 4,
   },
   title: {
     fontSize: 16,
