@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    container_name: sfews-backend
+    restart: always
+    volumes:
+      - ./.env:/app/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    networks:
+      - gin_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: sfews-database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sfews
+      MYSQL_DATABASE: sfews
+      MYSQL_USER: sfews
+      MYSQL_PASSWORD: sfews
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - gin_network
+
+networks:
+  gin_network:
+
+volumes:
+  mysql_data:

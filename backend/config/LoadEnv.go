@@ -13,6 +13,6 @@ func LoadEnv() error {
 	// parentFolder := filepath.Dir(dirNow)
 	// envPath := filepath.Join(parentFolder, ".env")
 
-	err := godotenv.Load()
+	err := godotenv.Load(".env")
 	return err
 }
