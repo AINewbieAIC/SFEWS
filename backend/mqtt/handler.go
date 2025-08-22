@@ -4,20 +4,18 @@ import (
 	"encoding/json"
 	"log"
 	"sfews-backend/handlers"
+	"sfews-backend/models"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
-
-type NodeStatus struct {
-	NodeOnline bool `json:"node_status"`
-}
 
 var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {
 	log.Println("MQTT IS CONNECTED")
 	handlers.NodeStatusOnline = true
 
-	nodeNotif := NodeStatus{
-		NodeOnline: true,
+	nodeNotif := models.NodeStatus{
+		Status:  true,
+		Message: "Node is online",
 	}
 
 	jsonData, err := json.Marshal(nodeNotif)
@@ -26,7 +24,7 @@ var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {
 		return
 	}
 
-	handlers.SendBroadcast("node", jsonData)
+	handlers.SendBroadcast("node", string(jsonData))
 }
 
 var ConnectLostHandler mqtt.ConnectionLostHandler = func(c mqtt.Client, err error) {
@@ -34,12 +32,13 @@ var ConnectLostHandler mqtt.ConnectionLostHandler = func(c mqtt.Client, err erro
 
 	handlers.NodeStatusOnline = false
 
-	nodeNotif := NodeStatus{
-		NodeOnline: false,
+	nodeNotif := models.NodeStatus{
+		Status:  handlers.NodeStatusOnline,
+		Message: "Node is disconnected",
 	}
 
-	jsonData, err := json.Marshal(nodeNotif)
-	if err != nil {
+	jsonData, marshalErr := json.Marshal(nodeNotif)
+	if marshalErr != nil {
 		handlers.SendBroadcast("error", "failed to marshal json")
 		return
 	}

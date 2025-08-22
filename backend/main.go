@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"sfews-backend/databases"
 	"sfews-backend/databases/migrations"
 	"sfews-backend/handlers"
+	"sfews-backend/models"
 	"sfews-backend/mqtt"
 	"sfews-backend/repositories"
 	"sfews-backend/routes"
@@ -36,15 +38,18 @@ func main() {
 		log.Fatalf("failed to migrate database : %v", err)
 	}
 
+	sensorRepo := repositories.NewSensorRepo(db)
+	sensorServices := services.NewSensorService(*sensorRepo)
+	sensorControllers := controllers.NewSensorController(*sensorServices)
+
+	// sse
+	handlers.RunBroadcaster()
+
 	// mqtt
 	mqttClient, err := mqtt.CreateClient()
 	if err != nil {
 		log.Fatalf("failed to create mqtt client : %v", err)
 	}
-
-	sensorRepo := repositories.NewSensorRepo(db)
-	sensorServices := services.NewSensorService(*sensorRepo)
-	sensorControllers := controllers.NewSensorController(*sensorServices)
 
 	client := mqtt.Mqtt{
 		Client:         mqttClient,
@@ -53,11 +58,21 @@ func main() {
 
 	err = client.ConnectAndSubscribe()
 	if err != nil {
-		log.Fatalf("failed to connect & subsribe : %v", err)
-	}
+		log.Printf("failed to connect & subsribe : %v", err)
 
-	// sse
-	handlers.RunBroadcaster()
+		data := models.NodeStatus{
+			Status:  false,
+			Message: "Failed connect to Node",
+		}
+
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			log.Printf("Failed to marshal data")
+			return
+		}
+
+		handlers.SendBroadcast("node", string(jsonData))
+	}
 
 	// routes
 	r := gin.Default()
@@ -78,9 +93,9 @@ func main() {
 
 	client.Disconnect()
 
-	postgresDB, err := db.DB()
+	Database, err := db.DB()
 	if err == nil {
-		postgresDB.Close()
+		Database.Close()
 	}
 
 	log.Println("shutting down is ok")
