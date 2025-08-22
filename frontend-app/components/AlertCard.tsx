@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { X } from 'lucide-react-native'; // atau bisa ganti pakai emoji ❌
+import { X } from 'lucide-react-native';
 
 interface AlertCardProps {
   time: string;
@@ -8,7 +8,7 @@ interface AlertCardProps {
   title: string;
   message: string;
   type: 'danger' | 'warning' | 'info' | 'success';
-  onClose?: () => void; // props baru untuk handle close
+  onClose?: () => void;
 }
 
 export function AlertCard({
