@@ -5,5 +5,9 @@ import (
 )
 
 func (r *Routes) SensorRoutes(group *gin.RouterGroup) {
-	group.GET("/rain", r.SensorController.GetRain)
+	rain := group.Group("/rain")
+	{
+		rain.GET("/", r.SensorController.GetRain)
+		rain.GET("/all/:limit", r.SensorController.GetAllRain)
+	}
 }

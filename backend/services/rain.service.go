@@ -14,18 +14,23 @@ func NewSensorService(repo repositories.SensorRepo) *SensorService {
 }
 
 func (s *SensorService) InsertDataRain(data *models.Rain) error {
-	if err := s.Repo.DB.Create(&data).Error; err != nil {
-		return err
-	}
-
-	return nil
+	return s.Repo.Insert(data)
 }
 
 func (s *SensorService) GetLastRain() (*models.Rain, error) {
-	var rain models.Rain
-	if err := s.Repo.DB.Last(&rain).Error; err != nil {
+	rain, err := s.Repo.GetLast()
+	if err != nil {
 		return nil, err
 	}
 
-	return &rain, nil
+	return rain, nil
+}
+
+func (s *SensorService) GetAllRain(limit int) ([]models.Rain, error) {
+	rains, err := s.Repo.GetAll(limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return rains, nil
 }

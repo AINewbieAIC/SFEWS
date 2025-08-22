@@ -11,6 +11,7 @@ import (
 
 var ConnectHandler mqtt.OnConnectHandler = func(c mqtt.Client) {
 	log.Println("MQTT IS CONNECTED")
+
 	handlers.NodeStatusOnline = true
 
 	nodeNotif := models.NodeStatus{
