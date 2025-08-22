@@ -14,3 +14,12 @@ type Rain struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
+
+type Alerts struct {
+	ID      uint   `json:"id"`
+	Time    string `json:"time"`
+	Date    string `json:"date"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
+}
