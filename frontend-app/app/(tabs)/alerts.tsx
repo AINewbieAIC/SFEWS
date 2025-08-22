@@ -84,7 +84,7 @@ export default function Alerts() {
           />
         </View>
 
-        {/* <View style={styles.section}>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Alerts</Text>
           {alerts.map((alert) => (
             <AlertCard
@@ -97,7 +97,7 @@ export default function Alerts() {
               read={alert.read}
             />
           ))}
-        </View> */}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
