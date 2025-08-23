@@ -84,7 +84,7 @@ export default function Alerts() {
           />
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionAlerts}>
           <Text style={styles.sectionTitle}>Recent Alerts</Text>
           {alerts.map((alert) => (
             <AlertCard
@@ -140,6 +140,11 @@ const styles = StyleSheet.create({
   section: {
     margin: 16,
     marginTop: 8,
+  },
+  sectionAlerts: {
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 50,
   },
   sectionTitle: {
     fontSize: 18,
