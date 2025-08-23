@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View,
-  Text,
+  SafeAreaView,
   StyleSheet,
+  Text,
   ScrollView,
   RefreshControl,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { EventSourcePolyfill } from 'event-source-polyfill';
+
 import { StatusCard } from '@/components/StatusCard';
 import { WaterLevelCard } from '@/components/WaterLevelCard';
 import { RainStatusCard } from '@/components/RainStatusCard';
 import { FloodRiskCard } from '@/components/FloodRiskCard';
 import { Header } from '@/components/Header';
 
-const API_BASE = 'https://controversial-boulder-panels-blues.trycloudflare.com';
+const API_BASE = 'http://103.250.10.113';
 
 const RAIN_STATUS_TEXT = ['Tidak Hujan', 'Gerimis', 'Sedang', 'Deras'];
 
@@ -34,65 +36,88 @@ const mapAlertLevel = (level: number) => {
   }
 };
 
-const fetchDashboardData = async () => {
-  try {
-    const rainRes = await fetch(`${API_BASE}/api/rain/`);
-    const rainJson = await rainRes.json();
-    if (!rainJson.status) throw new Error('Rain API Error');
-
-    const d = rainJson.data;
-
-    const nodeRes = await fetch(`${API_BASE}/api/node/status`);
-    const nodeJson = await nodeRes.json();
-    const nodeStatus = nodeJson?.status === true;
-
-    const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
-
-    return {
-      nodeStatus,
-      waterLevel: d.water_level,
-      rainIntensity: d.rain_status,
-      rainDuration: d.rain_duration_minutes,
-      riskLevel,
-      riskColor,
-    };
-  } catch (err) {
-    console.error('Fetch error:', err);
-    return {
-      nodeStatus: false,
-      waterLevel: 0,
-      rainIntensity: 0,
-      rainDuration: 0,
-      riskLevel: 'Error',
-      riskColor: '#DC2626',
-    };
-  }
-};
-
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const fetchLatest = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/rain/`);
+      const json = await res.json();
+      if (!json.status) throw new Error('Rain API Error');
+
+      const d = json.data;
+
+      const nodeRes = await fetch(`${API_BASE}/api/node/status`);
+      const nodeJson = await nodeRes.json();
+      const nodeStatus = nodeJson?.status === true;
+
+      const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
+
+      setData({
+        nodeStatus,
+        waterLevel: d.water_level,
+        rainIntensity: d.rain_status,
+        rainDuration: d.rain_duration_minutes,
+        riskLevel,
+        riskColor,
+      });
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadData = async () => {
-      const result = await fetchDashboardData();
-      setData(result);
-      setLastUpdate(new Date());
+    const es = new EventSourcePolyfill(`${API_BASE}/api/events`, {
+      headers: {
+        Accept: 'text/event-stream',
+      },
+      heartbeatTimeout: 60000,
+    });
+
+    es.onopen = () => {
+      console.log('SSE connected');
     };
 
-    loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    es.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        console.log('SSE update:', parsed);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    const result = await fetchDashboardData();
-    setData(result);
-    setLastUpdate(new Date());
-    setRefreshing(false);
+        if (parsed?.data) {
+          const d = parsed.data;
+          const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
+
+          setData({
+            nodeStatus: true,
+            waterLevel: d.water_level,
+            rainIntensity: d.rain_status,
+            rainDuration: d.rain_duration_minutes,
+            riskLevel,
+            riskColor,
+          });
+          setLastUpdate(new Date());
+        }
+      } catch (err) {
+        console.error('SSE parse error:', err);
+      }
+    };
+
+    es.onerror = (err) => {
+      console.error('SSE error:', err);
+      es.close();
+    };
+
+    return () => {
+      es.close();
+    };
   }, []);
+  useEffect(() => {
+    fetchLatest();
+  }, [fetchLatest]);
 
   if (!data) {
     return (
@@ -110,7 +135,7 @@ export default function Dashboard() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={fetchLatest} />
         }
         showsVerticalScrollIndicator={false}
       >
