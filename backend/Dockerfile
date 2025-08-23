@@ -1,7 +1,5 @@
-# Gunakan base image golang
 FROM golang:1.23-alpine AS builder
 
-# Set environment
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
     GOOS=linux \

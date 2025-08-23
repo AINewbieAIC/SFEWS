@@ -27,6 +27,12 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - gin_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   nginx:
     image: nginx:alpine
@@ -40,7 +46,6 @@ services:
       - app
     networks:
       - gin_network
-
 
 networks:
   gin_network:
