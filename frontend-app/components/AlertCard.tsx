@@ -48,7 +48,7 @@ export function AlertCard({
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X size={18} color="#374151" />
           </TouchableOpacity>
-        )}
+        )}  
       </View>
 
       <Text style={styles.title}>{title}</Text>
