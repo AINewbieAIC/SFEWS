@@ -5,7 +5,7 @@ Project ini mengangkat permasalahan dari bencana banjir yang baru-baru ini menim
 # Members of AI_Newbie
 - Faiz (ML & IoT Modelling)
 - Yuta (Front End)
-- Alfaridzi (Back End
+- Alfaridzi (Back End)
   
 # Hardware
 - ESP32 (Edge ML with Tree Decision Algorithm ML)
