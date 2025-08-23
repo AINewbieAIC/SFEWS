@@ -12,40 +12,68 @@ import { WaterLevelCard } from '@/components/WaterLevelCard';
 import { RainStatusCard } from '@/components/RainStatusCard';
 import { FloodRiskCard } from '@/components/FloodRiskCard';
 import { Header } from '@/components/Header';
+
+const API_BASE = 'https://controversial-boulder-panels-blues.trycloudflare.com';
+
 const RAIN_STATUS_TEXT = ['Tidak Hujan', 'Gerimis', 'Sedang', 'Deras'];
+
+const mapAlertLevel = (level: number) => {
+  switch (level) {
+    case -2:
+      return { riskLevel: 'Nihil', riskColor: '#6B7280' };
+    case -1:
+      return { riskLevel: 'Error', riskColor: '#DC2626' };
+    case 0:
+      return { riskLevel: 'Aman', riskColor: '#10B981' };
+    case 1:
+      return { riskLevel: 'Waspada', riskColor: '#F59E0B' };
+    case 2:
+      return { riskLevel: 'Bahaya (Evakuasi)', riskColor: '#DC2626' };
+    default:
+      return { riskLevel: 'Unknown', riskColor: '#6B7280' };
+  }
+};
+
 const fetchDashboardData = async () => {
-  const waterLevel = Math.floor(Math.random() * 300) + 50;
-  const rainIntensity = Math.floor(Math.random() * 4);
-  const rainDuration =
-    rainIntensity > 0 ? Math.floor(Math.random() * 120) + 1 : 0;
-  const isOnline = Math.random() > 0.1;
+  try {
+    const rainRes = await fetch(`${API_BASE}/api/rain/`);
+    const rainJson = await rainRes.json();
+    if (!rainJson.status) throw new Error('Rain API Error');
 
-  let riskLevel = 'Aman';
-  let riskColor = '#10B981';
+    const d = rainJson.data;
 
-  if (waterLevel > 100 && rainIntensity >= 2) {
-    riskLevel = 'Waspada';
-    riskColor = '#F59E0B';
+    const nodeRes = await fetch(`${API_BASE}/api/node/status`);
+    const nodeJson = await nodeRes.json();
+    const nodeStatus = nodeJson?.status === true;
+
+    const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
+
+    return {
+      nodeStatus,
+      waterLevel: d.water_level,
+      rainIntensity: d.rain_status,
+      rainDuration: d.rain_duration_minutes,
+      riskLevel,
+      riskColor,
+    };
+  } catch (err) {
+    console.error('Fetch error:', err);
+    return {
+      nodeStatus: false,
+      waterLevel: 0,
+      rainIntensity: 0,
+      rainDuration: 0,
+      riskLevel: 'Error',
+      riskColor: '#DC2626',
+    };
   }
-  if (waterLevel > 200 && rainIntensity === 3 && rainDuration > 30) {
-    riskLevel = 'Bahaya';
-    riskColor = '#DC2626';
-  }
-
-  return {
-    nodeStatus: isOnline,
-    waterLevel,
-    rainIntensity,
-    rainDuration,
-    riskLevel,
-    riskColor,
-  };
 };
 
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+
   useEffect(() => {
     const loadData = async () => {
       const result = await fetchDashboardData();
@@ -55,9 +83,9 @@ export default function Dashboard() {
 
     loadData();
     const interval = setInterval(loadData, 10000);
-
     return () => clearInterval(interval);
   }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     const result = await fetchDashboardData();
@@ -121,12 +149,16 @@ export default function Dashboard() {
               {data.riskLevel}
             </Text>
             <Text style={styles.riskDescription}>
+              {data.riskLevel === 'Nihil' &&
+                'Belum ada data terdeteksi dari sensor.'}
+              {data.riskLevel === 'Error' &&
+                'Terjadi kesalahan pada sistem atau sensor.'}
               {data.riskLevel === 'Aman' &&
                 'Kondisi normal. Tidak ada ancaman banjir.'}
               {data.riskLevel === 'Waspada' &&
                 'Perhatikan perkembangan. Siapkan antisipasi.'}
-              {data.riskLevel === 'Bahaya' &&
-                'Ancaman banjir tinggi. Segera ambil tindakan!'}
+              {data.riskLevel.startsWith('Bahaya') &&
+                'Ancaman banjir tinggi. Segera lakukan evakuasi!'}
             </Text>
           </View>
         </View>
