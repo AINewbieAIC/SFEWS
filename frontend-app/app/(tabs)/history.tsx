@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from '@/components/LineChart';
 import { HistoryCard } from '@/components/HistoryCard';
-import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const generateHistoryData = () => {
-  const hours = [];
-  const waterLevels = [];
-  const rainData = [];
+  const hours: string[] = [];
+  const waterLevels: number[] = [];
+  const rainData: number[] = [];
 
   for (let i = 23; i >= 0; i--) {
     const hour = new Date();
@@ -22,40 +27,49 @@ const generateHistoryData = () => {
   return { hours, waterLevels, rainData };
 };
 
-const initialEvents = [
-  {
-    id: 1,
-    time: '2 jam lalu',
-    event: 'Water Level Mencapai 180 cm',
-    risk: 'Waspada',
-    color: '#F59E0B',
-  },
-  {
-    id: 2,
-    time: '4 jam lalu',
-    event: 'Hujan Deras Dimulai',
-    risk: 'Info',
-    color: '#3B82F6',
-  },
-  {
-    id: 3,
-    time: '6 jam lalu',
-    event: 'Node Sensor Offline',
-    risk: 'Peringatan',
-    color: '#DC2626',
-  },
-  {
-    id: 4,
-    time: '8 jam lalu',
-    event: 'Kondisi Normal',
-    risk: 'Aman',
-    color: '#10B981',
-  },
-];
+const riskMap: Record<number, { risk: string; color: string }> = {
+  [-2]: { risk: 'Nihil', color: '#6B7280' },
+  [-1]: { risk: 'Error', color: '#DC2626' },
+  [0]: { risk: 'Aman', color: '#10B981' },
+  [1]: { risk: 'Waspada', color: '#F59E0B' },
+  [2]: { risk: 'Bahaya (Evakuasi)', color: '#DC2626' },
+};
 
 export default function History() {
   const [historyData] = useState(generateHistoryData());
-  const [events, setEvents] = useState(initialEvents);
+  const [events, setEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('http://103.250.10.113/api/rain/all/5');
+        const json = await res.json();
+
+        if (json.status && json.data) {
+          const mapped = json.data.map((item: any, idx: number) => {
+            const level = item.alert_level ?? 0;
+            const { risk, color } = riskMap[level] || riskMap[0];
+            return {
+              id: idx,
+              time: new Date(item.CreatedAt).toLocaleString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              event: `Water Level: ${item.water_level} cm, Rain: ${item.rain_status}`,
+              risk,
+              color,
+            };
+          });
+          setEvents(mapped);
+        }
+      } catch (err) {
+        console.log('Fetch error:', err);
+      }
+    };
+    fetchEvents();
+    const interval = setInterval(fetchEvents, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleClose = (id: number) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));

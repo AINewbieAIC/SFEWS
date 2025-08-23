@@ -111,7 +111,6 @@ export default function Alerts() {
           date: new Date().toLocaleDateString(),
           title: addEmojiToTitle('SSE Connection Error', 'danger'),
           message:
-            event?.message ||
             'Failed to connect to server (504 Gateway Timeout). Retrying...',
           type: 'danger',
         };

@@ -7,12 +7,12 @@ interface WaterLevelCardProps {
 }
 
 export function WaterLevelCard({ waterLevel }: WaterLevelCardProps) {
-  const maxLevel = 300;
+  const maxLevel = 100;
   const percentage = Math.min((waterLevel / maxLevel) * 100, 100);
 
   const getColor = (level: number) => {
-    if (level < 100) return '#10B981';
-    if (level < 200) return '#F59E0B';
+    if (level <= 19) return '#10B981';
+    if (level <= 50) return '#F59E0B';
     return '#DC2626';
   };
 
@@ -43,8 +43,8 @@ export function WaterLevelCard({ waterLevel }: WaterLevelCardProps) {
 
         <View style={styles.levelLabels}>
           <Text style={styles.levelLabel}>0</Text>
-          <Text style={styles.levelLabel}>Safe (100)</Text>
-          <Text style={styles.levelLabel}>Warning (200)</Text>
+          <Text style={styles.levelLabel}>Safe (19)</Text>
+          <Text style={styles.levelLabel}>Warning (50)</Text>
           <Text style={styles.levelLabel}>{maxLevel}</Text>
         </View>
       </View>
@@ -53,9 +53,9 @@ export function WaterLevelCard({ waterLevel }: WaterLevelCardProps) {
         <Text style={styles.statusText}>
           Status:{' '}
           <Text style={[styles.statusValue, { color }]}>
-            {waterLevel < 100
+            {waterLevel <= 19
               ? 'Aman'
-              : waterLevel < 200
+              : waterLevel <= 50
               ? 'Waspada'
               : 'Bahaya'}
           </Text>
