@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   sectionEvents: {
     margin: 16,
     marginTop: 8,
-    marginBottom: 40,
+    marginBottom: 50,
   },
   sectionTitle: {
     fontSize: 18,
@@ -158,7 +158,6 @@ const styles = StyleSheet.create({
   },
   eventWrapper: {
     position: 'relative',
-    marginBottom: 12,
   },
   closeBtn: {
     position: 'absolute',
@@ -171,5 +170,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     marginTop: 12,
+    marginBottom: 40,
   },
 });

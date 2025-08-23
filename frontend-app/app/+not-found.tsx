@@ -8,7 +8,7 @@ export default function NotFoundScreen() {
       <View style={styles.container}>
         <Text style={styles.text}>Welcome To SFEWS Apps</Text>
         <Link href="/" style={styles.link}>
-          <Text>Tunggu sebentar ya...</Text>
+          <Text>Tunggu sebentar atau tap tap</Text>
         </Link>
       </View>
     </>
