@@ -8,7 +8,8 @@ services:
     expose:
       - "8080"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - gin_network
 
@@ -28,7 +29,7 @@ services:
     networks:
       - gin_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,6 +50,7 @@ services:
 
 networks:
   gin_network:
+
 
 volumes:
   mysql_data:
