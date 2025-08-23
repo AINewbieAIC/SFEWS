@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from '@/components/LineChart';
 import { HistoryCard } from '@/components/HistoryCard';
-
-const { width: screenWidth } = Dimensions.get('window');
+import { TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 const generateHistoryData = () => {
   const hours = [];
@@ -22,7 +22,7 @@ const generateHistoryData = () => {
   return { hours, waterLevels, rainData };
 };
 
-const recentEvents = [
+const initialEvents = [
   {
     id: 1,
     time: '2 jam lalu',
@@ -55,6 +55,11 @@ const recentEvents = [
 
 export default function History() {
   const [historyData] = useState(generateHistoryData());
+  const [events, setEvents] = useState(initialEvents);
+
+  const handleClose = (id: number) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,17 +92,27 @@ export default function History() {
           />
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionEvents}>
           <Text style={styles.sectionTitle}>Recent Events</Text>
-          {recentEvents.map((event) => (
-            <HistoryCard
-              key={event.id}
-              time={event.time}
-              event={event.event}
-              risk={event.risk}
-              color={event.color}
-            />
+          {events.map((event) => (
+            <View key={event.id} style={styles.eventWrapper}>
+              <HistoryCard
+                time={event.time}
+                event={event.event}
+                risk={event.risk}
+                color={event.color}
+              />
+              <TouchableOpacity
+                onPress={() => handleClose(event.id)}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
           ))}
+          {events.length === 0 && (
+            <Text style={styles.emptyText}>Tidak ada alert terbaru 🎉</Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -128,12 +143,33 @@ const styles = StyleSheet.create({
   },
   section: {
     margin: 16,
+    marginTop: 2,
+  },
+  sectionEvents: {
+    margin: 16,
     marginTop: 8,
+    marginBottom: 40,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 16,
+  },
+  eventWrapper: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 4,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 12,
   },
 });
