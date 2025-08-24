@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,18 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import EventSource, { MessageEvent } from 'react-native-sse';
 import { LineChart } from '@/components/LineChart';
 import { HistoryCard } from '@/components/HistoryCard';
-import { Ionicons } from '@expo/vector-icons';
+import { X } from 'lucide-react-native';
+
+const riskMap: Record<number, { risk: string; color: string }> = {
+  [-2]: { risk: 'Nihil', color: '#6B7280' },
+  [-1]: { risk: 'Error', color: '#DC2626' },
+  [0]: { risk: 'Aman', color: '#10B981' },
+  [1]: { risk: 'Waspada', color: '#F59E0B' },
+  [2]: { risk: 'Bahaya', color: '#DC2626' },
+};
 
 const generateHistoryData = () => {
   const hours: string[] = [];
@@ -27,24 +36,20 @@ const generateHistoryData = () => {
   return { hours, waterLevels, rainData };
 };
 
-const riskMap: Record<number, { risk: string; color: string }> = {
-  [-2]: { risk: 'Nihil', color: '#6B7280' },
-  [-1]: { risk: 'Error', color: '#DC2626' },
-  [0]: { risk: 'Aman', color: '#10B981' },
-  [1]: { risk: 'Waspada', color: '#F59E0B' },
-  [2]: { risk: 'Bahaya (Evakuasi)', color: '#DC2626' },
-};
-
 export default function History() {
   const [historyData] = useState(generateHistoryData());
   const [events, setEvents] = useState<any[]>([]);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://103.250.10.113/api/rain/all/5');
-        const json = await res.json();
+    const es = new EventSource('http://103.250.10.113/api/rain/all/5', {
+      lineEndingCharacter: '\n',
+    });
+    eventSourceRef.current = es;
 
+    es.addEventListener('message', (event: MessageEvent) => {
+      try {
+        const json = JSON.parse(event.data);
         if (json.status && json.data) {
           const mapped = json.data.map((item: any, idx: number) => {
             const level = item.alert_level ?? 0;
@@ -63,12 +68,20 @@ export default function History() {
           setEvents(mapped);
         }
       } catch (err) {
-        console.log('Fetch error:', err);
+        console.error('SSE parse error:', err);
+      }
+    });
+
+    es.addEventListener('error', (e) => {
+      console.error('SSE Error:', e);
+    });
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
     };
-    fetchEvents();
-    const interval = setInterval(fetchEvents, 100);
-    return () => clearInterval(interval);
   }, []);
 
   const handleClose = (id: number) => {
@@ -120,7 +133,7 @@ export default function History() {
                 onPress={() => handleClose(event.id)}
                 style={styles.closeBtn}
               >
-                <Ionicons name="close" size={20} color="#6B7280" />
+                <X size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
           ))}

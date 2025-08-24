@@ -7,6 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import EventSource from 'react-native-sse';
 import { StatusCard } from '@/components/StatusCard';
 import { WaterLevelCard } from '@/components/WaterLevelCard';
 import { RainStatusCard } from '@/components/RainStatusCard';
@@ -14,7 +15,6 @@ import { FloodRiskCard } from '@/components/FloodRiskCard';
 import { Header } from '@/components/Header';
 
 const API_BASE = 'http://103.250.10.113';
-
 const RAIN_STATUS_TEXT = ['Tidak Hujan', 'Gerimis', 'Sedang', 'Deras'];
 
 const mapAlertLevel = (level: number) => {
@@ -28,40 +28,9 @@ const mapAlertLevel = (level: number) => {
     case 1:
       return { riskLevel: 'Waspada', riskColor: '#F59E0B' };
     case 2:
-      return { riskLevel: 'Bahaya (Evakuasi)', riskColor: '#DC2626' };
+      return { riskLevel: 'Bahaya', riskColor: '#DC2626' };
     default:
       return { riskLevel: 'Unknown', riskColor: '#6B7280' };
-  }
-};
-
-const fetchDashboardData = async () => {
-  try {
-    const rainRes = await fetch(`${API_BASE}/api/rain/`);
-    const rainJson = await rainRes.json();
-    if (!rainJson.status) throw new Error('Rain API Error');
-    const d = rainJson.data;
-    const nodeRes = await fetch(`${API_BASE}/api/node/status`);
-    const nodeJson = await nodeRes.json();
-    const nodeStatus = nodeJson?.status === true;
-    const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
-    return {
-      nodeStatus,
-      waterLevel: d.water_level,
-      rainIntensity: d.rain_status,
-      rainDuration: d.rain_duration_minutes,
-      riskLevel,
-      riskColor,
-    };
-  } catch (err) {
-    console.error('Fetch error:', err);
-    return {
-      nodeStatus: false,
-      waterLevel: 0,
-      rainIntensity: 0,
-      rainDuration: 0,
-      riskLevel: 'Error',
-      riskColor: '#DC2626',
-    };
   }
 };
 
@@ -70,24 +39,91 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  useEffect(() => {
-    const loadData = async () => {
-      const result = await fetchDashboardData();
-      setData(result);
-      setLastUpdate(new Date());
-    };
-
-    loadData();
-    const interval = setInterval(loadData, 100);
-    return () => clearInterval(interval);
+  const onRefresh = useCallback(() => {
+    setLastUpdate(new Date());
   }, []);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    const result = await fetchDashboardData();
-    setData(result);
-    setLastUpdate(new Date());
-    setRefreshing(false);
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const rainRes = await fetch(`${API_BASE}/api/rain`);
+        const rainJson = await rainRes.json();
+        const d = rainJson.data;
+        const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
+
+        const nodeRes = await fetch(`${API_BASE}/api/node/status`);
+        const nodeJson = await nodeRes.json();
+        const nodeStatus = nodeJson?.status === true;
+
+        setData({
+          nodeStatus,
+          waterLevel: d.water_level,
+          rainIntensity: d.rain_status,
+          rainDuration: d.rain_duration_minutes,
+          riskLevel,
+          riskColor,
+        });
+        setLastUpdate(new Date());
+      } catch (err) {
+        console.error('Initial fetch error:', err);
+        setData({
+          nodeStatus: false,
+          waterLevel: 0,
+          rainIntensity: 0,
+          rainDuration: 0,
+          riskLevel: 'Error',
+          riskColor: '#DC2626',
+        });
+      }
+    };
+
+    fetchInitialData();
+
+    const rainEvent = new EventSource(`${API_BASE}/api/rain`, {
+      lineEndingCharacter: '\n',
+    });
+    const nodeEvent = new EventSource(`${API_BASE}/api/node/status`, {
+      lineEndingCharacter: '\n',
+    });
+
+    const handleRainMessage = (event: any) => {
+      try {
+        const d = JSON.parse(event.data);
+        const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
+
+        setData((prev) => ({
+          ...prev,
+          waterLevel: d.water_level,
+          rainIntensity: d.rain_status,
+          rainDuration: d.rain_duration_minutes,
+          riskLevel,
+          riskColor,
+        }));
+        setLastUpdate(new Date());
+      } catch (err) {
+        console.error('SSE rain parse error:', err);
+      }
+    };
+
+    const handleNodeMessage = (event: any) => {
+      try {
+        const d = JSON.parse(event.data);
+        setData((prev) => ({
+          ...prev,
+          nodeStatus: d.status === true,
+        }));
+      } catch (err) {
+        console.error('SSE node parse error:', err);
+      }
+    };
+
+    rainEvent.addEventListener('message', handleRainMessage);
+    nodeEvent.addEventListener('message', handleNodeMessage);
+
+    return () => {
+      rainEvent.close();
+      nodeEvent.close();
+    };
   }, []);
 
   if (!data) {
@@ -101,7 +137,6 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <Header lastUpdate={lastUpdate} />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -164,17 +199,30 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 100 },
-  section: { marginBottom: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  section: {
+    marginBottom: 24,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 12,
   },
-  cardRow: { flexDirection: 'row', gap: 12 },
+  cardRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   riskCard: {
     backgroundColor: '#FFFFFF',
     padding: 20,
@@ -191,8 +239,16 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
   },
-  riskLevel: { fontSize: 24, fontWeight: '800', marginBottom: 8 },
-  riskDescription: { fontSize: 14, color: '#6B7280', lineHeight: 20 },
+  riskLevel: {
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  riskDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
   loadingText: {
     textAlign: 'center',
     marginTop: 50,
