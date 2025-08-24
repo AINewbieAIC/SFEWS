@@ -12,11 +12,11 @@ func RainToText(status int) string {
 	case 0:
 		message = "Tidak Hujan"
 	case 1:
-		message = "Gerimis"
+		message = "Dengan Hujan Gerimis"
 	case 2:
-		message = "Sedang"
+		message = "Dengan Hujan Sedang"
 	case 3:
-		message = "Deras"
+		message = "Dengan Hujan Deras"
 	}
 
 	return message
@@ -55,7 +55,7 @@ func SetMessage(rain models.Rain) string {
 	case 1:
 		message = fmt.Sprintf("Water level %.2f cm. dengan hujan %s. Harap tetap waspada.", rain.WaterLevel, RainToText(rain.RainStatus))
 	case 2:
-		message = fmt.Sprintf("Ketinggian air mencapai %.2f dengna hujan %s selama %d menit. Segera evakuasi!", rain.WaterLevel, RainToText(rain.RainStatus), rain.RainDurationMinutes)
+		message = fmt.Sprintf("Ketinggian air mencapai %.2f, %s selama %d menit. Segera evakuasi!", rain.WaterLevel, RainToText(rain.RainStatus), rain.RainDurationMinutes)
 	}
 
 	return message
