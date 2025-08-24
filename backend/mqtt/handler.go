@@ -44,5 +44,5 @@ var ConnectLostHandler mqtt.ConnectionLostHandler = func(c mqtt.Client, err erro
 		return
 	}
 
-	handlers.SendBroadcast("node", jsonData)
+	handlers.SendBroadcast("node", string(jsonData))
 }

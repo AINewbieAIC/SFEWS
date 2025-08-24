@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"io"
 	"sync"
 
@@ -42,11 +41,9 @@ func SSEHandler(ctx *gin.Context) {
 	ctx.Stream(func(w io.Writer) bool {
 		if ev, ok := <-messageChan; ok {
 
-			dataBytes, _ := json.Marshal(ev.Data)
-
 			ctx.Render(-1, sse.Event{
 				Event: ev.Type,
-				Data:  string(dataBytes),
+				Data:  ev.Data,
 			})
 			return true
 		}
@@ -67,7 +64,7 @@ func RunBroadcaster() {
 	}()
 }
 
-func SendBroadcast(eventType string, data interface{}) {
+func SendBroadcast(eventType string, data string) {
 	broadcast <- Event{
 		Type: eventType,
 		Data: data,
