@@ -20,21 +20,21 @@ interface AlertItem {
 type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
 
 export default function Alerts() {
-  const [pushEnabled, setPushEnabled] = useState<boolean>(true);
-  const [smsEnabled, setSmsEnabled] = useState<boolean>(false);
-  const [warningEnabled, setWarningEnabled] = useState<boolean>(true);
-  const [dangerEnabled, setDangerEnabled] = useState<boolean>(true);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [warningEnabled, setWarningEnabled] = useState(true);
+  const [dangerEnabled, setDangerEnabled] = useState(true);
 
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>('disconnected');
 
   const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
 
   const addEmojiToTitle = (title: string, type: AlertType): string => {
-    if (/^[🚨⚠️📡✅]/.test(title)) {
-      return title;
-    }
+    if (/^[🚨⚠️📡✅]/.test(title)) return title;
     switch (type) {
       case 'danger':
         return `🚨 ${title}`;
@@ -50,6 +50,8 @@ export default function Alerts() {
   };
 
   const initializeSSE = useCallback(() => {
+    if (!isMounted.current) return;
+
     try {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -58,21 +60,20 @@ export default function Alerts() {
       setConnectionStatus('connecting');
 
       const eventSource = new EventSource(`${API_BASE_URL}/api/events`, {
-        headers: {
-          Accept: 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
+        headers: { Accept: 'text/event-stream', 'Cache-Control': 'no-cache' },
       });
 
       eventSourceRef.current = eventSource;
+
       eventSource.addEventListener('open', () => {
         console.log('SSE Connection opened');
-        setConnectionStatus('connected');
+        if (isMounted.current) setConnectionStatus('connected');
       });
 
       eventSource.addEventListener('notification', (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data);
+          if (!data || !data.type) return;
 
           const shouldShowAlert =
             (data.type === 'warning' && warningEnabled) ||
@@ -83,61 +84,76 @@ export default function Alerts() {
           if (shouldShowAlert) {
             const newAlert: AlertItem = {
               id: data.id ?? Date.now(),
-              time: data.time,
-              date: data.date,
-              title: addEmojiToTitle(data.title, data.type),
-              message: data.message,
+              time: data.time ?? new Date().toLocaleTimeString(),
+              date: data.date ?? new Date().toLocaleDateString(),
+              title: addEmojiToTitle(data.title ?? 'New Alert', data.type),
+              message: data.message ?? '',
               type: data.type,
             };
 
-            setAlerts((prev) => [newAlert, ...prev]);
-
-            if (pushEnabled) {
-              Alert.alert(newAlert.title, newAlert.message, [
-                { text: 'OK', style: 'default' },
-              ]);
+            if (isMounted.current) {
+              setAlerts((prev) => [newAlert, ...prev].slice(0, 50));
+              if (pushEnabled) {
+                Alert.alert(newAlert.title, newAlert.message, [
+                  { text: 'OK', style: 'default' },
+                ]);
+              }
             }
           }
         } catch (error) {
           console.error('Error parsing notification data:', error);
         }
       });
+
       eventSource.addEventListener('error', (event: any) => {
         console.error('SSE Error:', event);
-        setConnectionStatus('error');
-        const newAlert: AlertItem = {
-          id: Date.now(),
-          time: new Date().toLocaleTimeString(),
-          date: new Date().toLocaleDateString(),
-          title: addEmojiToTitle('SSE Connection Error', 'danger'),
-          message:
-            'Failed to connect to server (504 Gateway Timeout). Retrying...',
-          type: 'danger',
-        };
+        if (isMounted.current) setConnectionStatus('error');
 
-        setAlerts((prev) => [newAlert, ...prev]);
-        setTimeout(() => {
-          console.log('Attempting to reconnect...');
-          initializeSSE();
-        }, 5000);
+        if (isMounted.current) {
+          setAlerts((prev) => [
+            {
+              id: Date.now(),
+              time: new Date().toLocaleTimeString(),
+              date: new Date().toLocaleDateString(),
+              title: addEmojiToTitle('SSE Connection Error', 'danger'),
+              message: 'Failed to connect (504 Timeout). Retrying...',
+              type: 'danger',
+            },
+            ...prev,
+          ]);
+        }
+        if (isMounted.current) {
+          if (reconnectTimeoutRef.current)
+            clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect...');
+            initializeSSE();
+          }, 5000);
+        }
       });
 
       eventSource.addEventListener('close', () => {
         console.log('SSE Connection closed');
-        setConnectionStatus('disconnected');
+        if (isMounted.current) setConnectionStatus('disconnected');
       });
     } catch (error) {
       console.error('Failed to initialize SSE:', error);
-      setConnectionStatus('error');
+      if (isMounted.current) setConnectionStatus('error');
     }
   }, [pushEnabled, warningEnabled, dangerEnabled]);
 
   useEffect(() => {
+    isMounted.current = true;
     initializeSSE();
+
     return () => {
+      isMounted.current = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, [initializeSSE]);
@@ -188,6 +204,7 @@ export default function Alerts() {
             )}
           </View>
         </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notification Settings</Text>
           <NotificationSettings
@@ -201,6 +218,7 @@ export default function Alerts() {
             setDangerEnabled={setDangerEnabled}
           />
         </View>
+
         <View style={styles.sectionAlerts}>
           <Text style={styles.sectionTitle}>Recent Alerts</Text>
           {alerts.length === 0 ? (
@@ -208,9 +226,9 @@ export default function Alerts() {
               <Text style={styles.emptyStateText}>No recent alerts</Text>
             </View>
           ) : (
-            alerts.map((alert) => (
+            alerts.map((alert, index) => (
               <AlertCard
-                key={alert.id}
+                key={`${alert.id}-${index}`}
                 time={alert.time}
                 date={alert.date}
                 title={alert.title}
@@ -227,8 +245,13 @@ export default function Alerts() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  scrollView: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  scrollView: {
+    flex: 1,
+  },
   header: {
     padding: 16,
     paddingBottom: 8,
@@ -236,7 +259,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  headerLeft: { flex: 1 },
+  headerLeft: {
+    flex: 1,
+  },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -246,20 +271,45 @@ const styles = StyleSheet.create({
   connectionStatus: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 20,
     marginTop: 4,
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  statusText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
-  badgeContainer: { flexDirection: 'row', marginTop: 4 },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    borderRadius: 20,
+    marginTop: 4,
+  },
   unreadBadge: {
     backgroundColor: '#DC2626',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  unreadText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
-  section: { margin: 16, marginTop: 8 },
-  sectionAlerts: { margin: 16, marginTop: 8, marginBottom: 50 },
+  unreadText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  section: {
+    margin: 16,
+    marginTop: 8,
+  },
+  sectionAlerts: {
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 50,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -274,5 +324,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  emptyStateText: { fontSize: 16, color: '#6B7280', fontWeight: '500' },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
 });
