@@ -7,7 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import EventSource from 'react-native-sse';
+import EventSource, { MessageEvent } from 'react-native-sse';
 import { StatusCard } from '@/components/StatusCard';
 import { WaterLevelCard } from '@/components/WaterLevelCard';
 import { RainStatusCard } from '@/components/RainStatusCard';
@@ -16,6 +16,15 @@ import { Header } from '@/components/Header';
 
 const API_BASE = 'http://103.250.10.113';
 const RAIN_STATUS_TEXT = ['Tidak Hujan', 'Gerimis', 'Sedang', 'Deras'];
+
+type DashboardData = {
+  nodeStatus: boolean;
+  waterLevel: number;
+  rainIntensity: number;
+  rainDuration: number;
+  riskLevel: string;
+  riskColor: string;
+};
 
 const mapAlertLevel = (level: number) => {
   switch (level) {
@@ -35,48 +44,54 @@ const mapAlertLevel = (level: number) => {
 };
 
 export default function Dashboard() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  const onRefresh = useCallback(() => {
-    setLastUpdate(new Date());
+  const fetchInitialData = useCallback(async () => {
+    try {
+      setRefreshing(true);
+
+      const rainRes = await fetch(`${API_BASE}/api/rain`);
+      const rainJson = await rainRes.json();
+      const d = rainJson?.data;
+      if (!d) throw new Error('Invalid rain data');
+
+      const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
+
+      const nodeRes = await fetch(`${API_BASE}/api/node/status`);
+      const nodeJson = await nodeRes.json();
+      const nodeStatus = nodeJson?.status === true;
+
+      setData({
+        nodeStatus,
+        waterLevel: d.water_level ?? 0,
+        rainIntensity: d.rain_status ?? 0,
+        rainDuration: d.rain_duration_minutes ?? 0,
+        riskLevel,
+        riskColor,
+      });
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error('Initial fetch error:', err);
+      setData({
+        nodeStatus: false,
+        waterLevel: 0,
+        rainIntensity: 0,
+        rainDuration: 0,
+        riskLevel: 'Error',
+        riskColor: '#DC2626',
+      });
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
+  const onRefresh = useCallback(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
+
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const rainRes = await fetch(`${API_BASE}/api/rain`);
-        const rainJson = await rainRes.json();
-        const d = rainJson.data;
-        const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
-
-        const nodeRes = await fetch(`${API_BASE}/api/node/status`);
-        const nodeJson = await nodeRes.json();
-        const nodeStatus = nodeJson?.status === true;
-
-        setData({
-          nodeStatus,
-          waterLevel: d.water_level,
-          rainIntensity: d.rain_status,
-          rainDuration: d.rain_duration_minutes,
-          riskLevel,
-          riskColor,
-        });
-        setLastUpdate(new Date());
-      } catch (err) {
-        console.error('Initial fetch error:', err);
-        setData({
-          nodeStatus: false,
-          waterLevel: 0,
-          rainIntensity: 0,
-          rainDuration: 0,
-          riskLevel: 'Error',
-          riskColor: '#DC2626',
-        });
-      }
-    };
-
     fetchInitialData();
 
     const rainEvent = new EventSource(`${API_BASE}/api/rain`, {
@@ -86,16 +101,15 @@ export default function Dashboard() {
       lineEndingCharacter: '\n',
     });
 
-    const handleRainMessage = (event: any) => {
+    const handleRainMessage = (event: MessageEvent) => {
       try {
         const d = JSON.parse(event.data);
         const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
-
         setData((prev) => ({
-          ...prev,
-          waterLevel: d.water_level,
-          rainIntensity: d.rain_status,
-          rainDuration: d.rain_duration_minutes,
+          ...prev!,
+          waterLevel: d.water_level ?? 0,
+          rainIntensity: d.rain_status ?? 0,
+          rainDuration: d.rain_duration_minutes ?? 0,
           riskLevel,
           riskColor,
         }));
@@ -105,11 +119,11 @@ export default function Dashboard() {
       }
     };
 
-    const handleNodeMessage = (event: any) => {
+    const handleNodeMessage = (event: MessageEvent) => {
       try {
         const d = JSON.parse(event.data);
         setData((prev) => ({
-          ...prev,
+          ...prev!,
           nodeStatus: d.status === true,
         }));
       } catch (err) {
@@ -121,10 +135,12 @@ export default function Dashboard() {
     nodeEvent.addEventListener('message', handleNodeMessage);
 
     return () => {
+      rainEvent.removeAllEventListeners?.();
+      nodeEvent.removeAllEventListeners?.();
       rainEvent.close();
       nodeEvent.close();
     };
-  }, []);
+  }, [fetchInitialData]);
 
   if (!data) {
     return (
@@ -162,11 +178,12 @@ export default function Dashboard() {
           <Text style={styles.sectionTitle}>Water Monitoring</Text>
           <WaterLevelCard waterLevel={data.waterLevel} />
         </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Weather Information</Text>
           <RainStatusCard
-            rainStatus={RAIN_STATUS_TEXT[data.rainIntensity]}
+            rainStatus={
+              RAIN_STATUS_TEXT[data.rainIntensity] ?? 'Tidak Diketahui'
+            }
             rainDuration={data.rainDuration}
             intensity={data.rainIntensity}
           />
@@ -188,7 +205,7 @@ export default function Dashboard() {
                 'Kondisi normal. Tidak ada ancaman banjir.'}
               {data.riskLevel === 'Waspada' &&
                 'Perhatikan perkembangan. Siapkan antisipasi.'}
-              {data.riskLevel.startsWith('Bahaya') &&
+              {data.riskLevel === 'Bahaya' &&
                 'Ancaman banjir tinggi. Segera lakukan evakuasi!'}
             </Text>
           </View>

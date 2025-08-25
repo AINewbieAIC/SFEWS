@@ -53,27 +53,26 @@ export default function Alerts() {
     if (!isMounted.current) return;
 
     try {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-
+      eventSourceRef.current?.close();
       setConnectionStatus('connecting');
 
       const eventSource = new EventSource(`${API_BASE_URL}/api/events`, {
-        headers: { Accept: 'text/event-stream', 'Cache-Control': 'no-cache' },
+        headers: {
+          Accept: 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
       });
-
       eventSourceRef.current = eventSource;
-
       eventSource.addEventListener('open', () => {
         console.log('SSE Connection opened');
         if (isMounted.current) setConnectionStatus('connected');
       });
 
+      // Notification event
       eventSource.addEventListener('notification', (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data);
-          if (!data || !data.type) return;
+          const data = JSON.parse(event.data || '{}');
+          if (!data?.type) return;
 
           const shouldShowAlert =
             (data.type === 'warning' && warningEnabled) ||
@@ -81,23 +80,23 @@ export default function Alerts() {
             data.type === 'info' ||
             data.type === 'success';
 
-          if (shouldShowAlert) {
-            const newAlert: AlertItem = {
-              id: data.id ?? Date.now(),
-              time: data.time ?? new Date().toLocaleTimeString(),
-              date: data.date ?? new Date().toLocaleDateString(),
-              title: addEmojiToTitle(data.title ?? 'New Alert', data.type),
-              message: data.message ?? '',
-              type: data.type,
-            };
+          if (!shouldShowAlert) return;
 
-            if (isMounted.current) {
-              setAlerts((prev) => [newAlert, ...prev].slice(0, 50));
-              if (pushEnabled) {
-                Alert.alert(newAlert.title, newAlert.message, [
-                  { text: 'OK', style: 'default' },
-                ]);
-              }
+          const newAlert: AlertItem = {
+            id: data.id ?? Date.now(),
+            time: data.time ?? new Date().toLocaleTimeString(),
+            date: data.date ?? new Date().toLocaleDateString(),
+            title: addEmojiToTitle(data.title ?? 'New Alert', data.type),
+            message: data.message ?? '',
+            type: data.type,
+          };
+
+          if (isMounted.current) {
+            setAlerts((prev) => [newAlert, ...prev].slice(0, 50));
+            if (pushEnabled) {
+              Alert.alert(newAlert.title, newAlert.message, [
+                { text: 'OK', style: 'default' },
+              ]);
             }
           }
         } catch (error) {
@@ -122,6 +121,7 @@ export default function Alerts() {
             ...prev,
           ]);
         }
+
         if (isMounted.current) {
           if (reconnectTimeoutRef.current)
             clearTimeout(reconnectTimeoutRef.current);
@@ -148,10 +148,8 @@ export default function Alerts() {
 
     return () => {
       isMounted.current = false;
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
@@ -226,9 +224,9 @@ export default function Alerts() {
               <Text style={styles.emptyStateText}>No recent alerts</Text>
             </View>
           ) : (
-            alerts.map((alert, index) => (
+            alerts.map((alert) => (
               <AlertCard
-                key={`${alert.id}-${index}`}
+                key={alert.id}
                 time={alert.time}
                 date={alert.date}
                 title={alert.title}
@@ -271,7 +269,6 @@ const styles = StyleSheet.create({
   connectionStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
     marginTop: 4,
   },
   statusDot: {
@@ -287,7 +284,6 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     flexDirection: 'row',
-    borderRadius: 20,
     marginTop: 4,
   },
   unreadBadge: {
