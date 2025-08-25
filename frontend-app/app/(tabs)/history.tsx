@@ -12,6 +12,8 @@ import { LineChart } from '@/components/LineChart';
 import { HistoryCard } from '@/components/HistoryCard';
 import { X } from 'lucide-react-native';
 
+const API_URL = 'http://103.250.10.113/api/rain/all/5';
+
 const riskMap: Record<number, { risk: string; color: string }> = {
   [-2]: { risk: 'Nihil', color: '#6B7280' },
   [-1]: { risk: 'Error', color: '#DC2626' },
@@ -19,7 +21,6 @@ const riskMap: Record<number, { risk: string; color: string }> = {
   [1]: { risk: 'Waspada', color: '#F59E0B' },
   [2]: { risk: 'Bahaya', color: '#DC2626' },
 };
-
 const generateHistoryData = () => {
   const hours: string[] = [];
   const waterLevels: number[] = [];
@@ -30,53 +31,76 @@ const generateHistoryData = () => {
     hour.setHours(hour.getHours() - i);
     hours.push(hour.getHours().toString().padStart(2, '0'));
     waterLevels.push(Math.floor(Math.random() * 200) + 50);
-    rainData.push(Math.random() * 10);
+    rainData.push(Number((Math.random() * 10).toFixed(1)));
   }
 
   return { hours, waterLevels, rainData };
 };
 
+interface EventItem {
+  id: string | number;
+  time: string;
+  event: string;
+  risk: string;
+  color: string;
+}
+
 export default function History() {
   const [historyData] = useState(generateHistoryData());
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const es = new EventSource('http://103.250.10.113/api/rain/all/5', {
-      lineEndingCharacter: '\n',
-    });
-    eventSourceRef.current = es;
+    let isMounted = true;
 
-    es.addEventListener('message', (event: MessageEvent) => {
-      try {
-        const json = JSON.parse(event.data);
-        if (json.status && json.data) {
-          const mapped = json.data.map((item: any, idx: number) => {
-            const level = item.alert_level ?? 0;
-            const { risk, color } = riskMap[level] || riskMap[0];
-            return {
-              id: idx,
-              time: new Date(item.CreatedAt).toLocaleString('id-ID', {
-                hour: '2-digit',
-                minute: '2-digit',
-              }),
-              event: `Water Level: ${item.water_level} cm, Rain: ${item.rain_status}`,
-              risk,
-              color,
-            };
-          });
-          setEvents(mapped);
+    try {
+      const es = new EventSource(API_URL, { lineEndingCharacter: '\n' });
+      eventSourceRef.current = es;
+
+      es.addEventListener('message', (event: MessageEvent) => {
+        if (!isMounted) return;
+
+        try {
+          const json = JSON.parse(event.data ?? '{}');
+
+          if (json?.status && Array.isArray(json?.data)) {
+            const mapped: EventItem[] = json.data.map(
+              (item: any, idx: number) => {
+                const level = item?.alert_level ?? 0;
+                const { risk, color } = riskMap[level] || riskMap[0];
+                return {
+                  id: item?.id ?? `${Date.now()}-${idx}`,
+                  time: new Date(item?.CreatedAt ?? Date.now()).toLocaleString(
+                    'id-ID',
+                    {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }
+                  ),
+                  event: `Water Level: ${item?.water_level ?? '-'} cm, Rain: ${
+                    item?.rain_status ?? '-'
+                  }`,
+                  risk,
+                  color,
+                };
+              }
+            );
+            setEvents(mapped);
+          }
+        } catch (err) {
+          console.error('❌ SSE JSON parse error:', err);
         }
-      } catch (err) {
-        console.error('SSE parse error:', err);
-      }
-    });
+      });
 
-    es.addEventListener('error', (e) => {
-      console.error('SSE Error:', e);
-    });
+      es.addEventListener('error', (e) => {
+        console.error('❌ SSE Error:', e?.message || e);
+      });
+    } catch (err) {
+      console.error('❌ Failed to init SSE:', err);
+    }
 
     return () => {
+      isMounted = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -84,7 +108,7 @@ export default function History() {
     };
   }, []);
 
-  const handleClose = (id: number) => {
+  const handleClose = (id: string | number) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
   };
 
@@ -98,7 +122,6 @@ export default function History() {
           <Text style={styles.title}>History & Monitoring</Text>
           <Text style={styles.subtitle}>Data 24 jam terakhir</Text>
         </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Water Level Trend</Text>
           <LineChart
@@ -121,24 +144,25 @@ export default function History() {
 
         <View style={styles.sectionEvents}>
           <Text style={styles.sectionTitle}>Recent Events</Text>
-          {events.map((event) => (
-            <View key={event.id} style={styles.eventWrapper}>
-              <HistoryCard
-                time={event.time}
-                event={event.event}
-                risk={event.risk}
-                color={event.color}
-              />
-              <TouchableOpacity
-                onPress={() => handleClose(event.id)}
-                style={styles.closeBtn}
-              >
-                <X size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-          ))}
-          {events.length === 0 && (
+          {events.length === 0 ? (
             <Text style={styles.emptyText}>Tidak ada alert terbaru 🎉</Text>
+          ) : (
+            events.map((event) => (
+              <View key={event.id} style={styles.eventWrapper}>
+                <HistoryCard
+                  time={event.time}
+                  event={event.event}
+                  risk={event.risk}
+                  color={event.color}
+                />
+                <TouchableOpacity
+                  onPress={() => handleClose(event.id)}
+                  style={styles.closeBtn}
+                >
+                  <X size={20} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            ))
           )}
         </View>
       </ScrollView>
