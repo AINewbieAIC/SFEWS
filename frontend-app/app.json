@@ -29,6 +29,22 @@
       "eas": {
         "projectId": "a7ab4af9-07bb-4611-b082-b652dc42fe51"
       }
+    },
+    "env": {
+      "production": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://103.250.10.113",
+        "EXPO_PUBLIC_RAIN_ENDPOINT": "/api/rain",
+        "EXPO_PUBLIC_RAIN_ALL_ENDPOINT": "/api/rain/all/5",
+        "EXPO_PUBLIC_NODE_STATUS_ENDPOINT": "/api/node/status",
+        "EXPO_PUBLIC_EVENTS_ENDPOINT": "/api/events"
+      },
+      "development": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://103.250.10.113",
+        "EXPO_PUBLIC_RAIN_ENDPOINT": "/api/rain",
+        "EXPO_PUBLIC_RAIN_ALL_ENDPOINT": "/api/rain/all/5",
+        "EXPO_PUBLIC_NODE_STATUS_ENDPOINT": "/api/node/status",
+        "EXPO_PUBLIC_EVENTS_ENDPOINT": "/api/events"
+      }
     }
   }
 }

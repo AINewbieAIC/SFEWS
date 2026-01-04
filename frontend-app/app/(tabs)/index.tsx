@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,140 +7,17 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import EventSource, { MessageEvent } from 'react-native-sse';
 import { StatusCard } from '@/components/StatusCard';
 import { WaterLevelCard } from '@/components/WaterLevelCard';
 import { RainStatusCard } from '@/components/RainStatusCard';
 import { FloodRiskCard } from '@/components/FloodRiskCard';
 import { Header } from '@/components/Header';
+import { useDashboard } from '@/hooks/useDashboard';
 
-const API_BASE = 'http://103.250.10.113';
 const RAIN_STATUS_TEXT = ['Tidak Hujan', 'Gerimis', 'Sedang', 'Deras'];
 
-type DashboardData = {
-  nodeStatus: boolean;
-  waterLevel: number;
-  rainIntensity: number;
-  rainDuration: number;
-  riskLevel: string;
-  riskColor: string;
-};
-
-const mapAlertLevel = (level: number) => {
-  switch (level) {
-    case -2:
-      return { riskLevel: 'Nihil', riskColor: '#6B7280' };
-    case -1:
-      return { riskLevel: 'Error', riskColor: '#DC2626' };
-    case 0:
-      return { riskLevel: 'Aman', riskColor: '#10B981' };
-    case 1:
-      return { riskLevel: 'Waspada', riskColor: '#F59E0B' };
-    case 2:
-      return { riskLevel: 'Bahaya', riskColor: '#DC2626' };
-    default:
-      return { riskLevel: 'Unknown', riskColor: '#6B7280' };
-  }
-};
-
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-
-  const fetchInitialData = useCallback(async () => {
-    try {
-      setRefreshing(true);
-
-      const rainRes = await fetch(`${API_BASE}/api/rain`);
-      const rainJson = await rainRes.json();
-      const d = rainJson?.data;
-      if (!d) throw new Error('Invalid rain data');
-
-      const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
-
-      const nodeRes = await fetch(`${API_BASE}/api/node/status`);
-      const nodeJson = await nodeRes.json();
-      const nodeStatus = nodeJson?.status === true;
-
-      setData({
-        nodeStatus,
-        waterLevel: d.water_level ?? 0,
-        rainIntensity: d.rain_status ?? 0,
-        rainDuration: d.rain_duration_minutes ?? 0,
-        riskLevel,
-        riskColor,
-      });
-      setLastUpdate(new Date());
-    } catch (err) {
-      console.error('Initial fetch error:', err);
-      setData({
-        nodeStatus: false,
-        waterLevel: 0,
-        rainIntensity: 0,
-        rainDuration: 0,
-        riskLevel: 'Error',
-        riskColor: '#DC2626',
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
-
-  const onRefresh = useCallback(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
-
-  useEffect(() => {
-    fetchInitialData();
-
-    const rainEvent = new EventSource(`${API_BASE}/api/rain`, {
-      lineEndingCharacter: '\n',
-    });
-    const nodeEvent = new EventSource(`${API_BASE}/api/node/status`, {
-      lineEndingCharacter: '\n',
-    });
-
-    const handleRainMessage = (event: MessageEvent) => {
-      try {
-        const d = JSON.parse(event.data);
-        const { riskLevel, riskColor } = mapAlertLevel(d.alert_level);
-        setData((prev) => ({
-          ...prev!,
-          waterLevel: d.water_level ?? 0,
-          rainIntensity: d.rain_status ?? 0,
-          rainDuration: d.rain_duration_minutes ?? 0,
-          riskLevel,
-          riskColor,
-        }));
-        setLastUpdate(new Date());
-      } catch (err) {
-        console.error('SSE rain parse error:', err);
-      }
-    };
-
-    const handleNodeMessage = (event: MessageEvent) => {
-      try {
-        const d = JSON.parse(event.data);
-        setData((prev) => ({
-          ...prev!,
-          nodeStatus: d.status === true,
-        }));
-      } catch (err) {
-        console.error('SSE node parse error:', err);
-      }
-    };
-
-    rainEvent.addEventListener('message', handleRainMessage);
-    nodeEvent.addEventListener('message', handleNodeMessage);
-
-    return () => {
-      rainEvent.removeAllEventListeners?.();
-      nodeEvent.removeAllEventListeners?.();
-      rainEvent.close();
-      nodeEvent.close();
-    };
-  }, [fetchInitialData]);
+  const { data, refreshing, lastUpdate, onRefresh } = useDashboard();
 
   if (!data) {
     return (

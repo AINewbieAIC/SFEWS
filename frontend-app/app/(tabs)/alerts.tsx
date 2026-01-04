@@ -1,23 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import EventSource, { MessageEvent } from 'react-native-sse';
 import { AlertCard } from '@/components/AlertCard';
 import { NotificationSettings } from '@/components/NotificationSettings';
-
-const API_BASE_URL = 'http://103.250.10.113';
-type AlertType = 'danger' | 'warning' | 'info' | 'success';
-
-interface AlertItem {
-  id: string | number;
-  time: string;
-  date: string;
-  title: string;
-  message: string;
-  type: AlertType;
-}
-
-type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
+import { useAlerts } from '@/hooks/useAlerts';
 
 export default function Alerts() {
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -25,140 +11,22 @@ export default function Alerts() {
   const [warningEnabled, setWarningEnabled] = useState(true);
   const [dangerEnabled, setDangerEnabled] = useState(true);
 
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>('disconnected');
+  const { alerts, connectionStatus, handleCloseAlert } = useAlerts(
+    pushEnabled,
+    warningEnabled,
+    dangerEnabled
+  );
 
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isMounted = useRef(true);
-
-  const addEmojiToTitle = (title: string, type: AlertType): string => {
-    if (/^[🚨⚠️📡✅]/.test(title)) return title;
-    switch (type) {
-      case 'danger':
-        return `🚨 ${title}`;
-      case 'warning':
-        return `⚠️ ${title}`;
-      case 'info':
-        return `📡 ${title}`;
-      case 'success':
-        return `✅ ${title}`;
-      default:
-        return title;
-    }
-  };
-
-  const initializeSSE = useCallback(() => {
-    if (!isMounted.current) return;
-
-    try {
-      eventSourceRef.current?.close();
-      setConnectionStatus('connecting');
-
-      const eventSource = new EventSource(`${API_BASE_URL}/api/events`, {
-        headers: {
-          Accept: 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
-      });
-      eventSourceRef.current = eventSource;
-      eventSource.addEventListener('open', () => {
-        console.log('SSE Connection opened');
-        if (isMounted.current) setConnectionStatus('connected');
-      });
-
-      // Notification event
-      eventSource.addEventListener('notification', (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data || '{}');
-          if (!data?.type) return;
-
-          const shouldShowAlert =
-            (data.type === 'warning' && warningEnabled) ||
-            (data.type === 'danger' && dangerEnabled) ||
-            data.type === 'info' ||
-            data.type === 'success';
-
-          if (!shouldShowAlert) return;
-
-          const newAlert: AlertItem = {
-            id: data.id ?? Date.now(),
-            time: data.time ?? new Date().toLocaleTimeString(),
-            date: data.date ?? new Date().toLocaleDateString(),
-            title: addEmojiToTitle(data.title ?? 'New Alert', data.type),
-            message: data.message ?? '',
-            type: data.type,
-          };
-
-          if (isMounted.current) {
-            setAlerts((prev) => [newAlert, ...prev].slice(0, 50));
-            if (pushEnabled) {
-              Alert.alert(newAlert.title, newAlert.message, [
-                { text: 'OK', style: 'default' },
-              ]);
-            }
-          }
-        } catch (error) {
-          console.error('Error parsing notification data:', error);
-        }
-      });
-
-      eventSource.addEventListener('error', (event: any) => {
-        console.error('SSE Error:', event);
-        if (isMounted.current) setConnectionStatus('error');
-
-        if (isMounted.current) {
-          setAlerts((prev) => [
-            {
-              id: Date.now(),
-              time: new Date().toLocaleTimeString(),
-              date: new Date().toLocaleDateString(),
-              title: addEmojiToTitle('SSE Connection Error', 'danger'),
-              message: 'Failed to connect (504 Timeout). Retrying...',
-              type: 'danger',
-            },
-            ...prev,
-          ]);
-        }
-
-        if (isMounted.current) {
-          if (reconnectTimeoutRef.current)
-            clearTimeout(reconnectTimeoutRef.current);
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect...');
-            initializeSSE();
-          }, 5000);
-        }
-      });
-
-      eventSource.addEventListener('close', () => {
-        console.log('SSE Connection closed');
-        if (isMounted.current) setConnectionStatus('disconnected');
-      });
-    } catch (error) {
-      console.error('Failed to initialize SSE:', error);
-      if (isMounted.current) setConnectionStatus('error');
-    }
-  }, [pushEnabled, warningEnabled, dangerEnabled]);
-
-  useEffect(() => {
-    isMounted.current = true;
-    initializeSSE();
-
-    return () => {
-      isMounted.current = false;
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
+  React.useEffect(() => {
+    if (pushEnabled && alerts.length > 0) {
+      const lastAlert = alerts[0];
+      if (lastAlert) {
+        Alert.alert(lastAlert.title, lastAlert.message, [
+          { text: 'OK', style: 'default' },
+        ]);
       }
-    };
-  }, [initializeSSE]);
-
-  const handleCloseAlert = (id: string | number) => {
-    setAlerts((prev) => prev.filter((alert) => alert.id !== id));
-  };
+    }
+  }, [alerts, pushEnabled]);
 
   const getConnectionStatusStyle = () => {
     switch (connectionStatus) {
